@@ -30,6 +30,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class IssueReviewsImpl implements IssueReviewsManager {
     private static final Logger log = LoggerFactory.getLogger(IssueReviewsImpl.class);
@@ -74,7 +76,8 @@ public class IssueReviewsImpl implements IssueReviewsManager {
     }
 
     protected List<GerritChange> getReviewsFromGerrit(String searchQuery) throws GerritQueryException {
-        List<GerritChange> changes;
+        List<GerritChange> changes = new ArrayList<>();
+        ;
 
         if (!configuration.isSshValid()) {
             // return Collections.emptyList();
@@ -82,32 +85,33 @@ public class IssueReviewsImpl implements IssueReviewsManager {
         }
 
         Authentication auth = new Authentication(configuration.getSshPrivateKey(), configuration.getSshUsername());
-        GerritQueryHandler query = new GerritQueryHandler(configuration.getSshHostname(), configuration.getSshPort(), null, auth);
-        List<JSONObject> reviews;
 
-        try {
-            reviews = query.queryJava(searchQuery, false, true, false);
-        } catch (SshException e) {
-            throw new GerritQueryException("An ssh error occurred while querying for reviews.", e);
-        } catch (IOException e) {
-            throw new GerritQueryException("An error occurred while querying for reviews.", e);
-        }
+        final Iterator<String> iterator = configuration.getSshHostnameList().iterator();
+        while (iterator.hasNext()) {
+            String sshHostName = iterator.next();
+            GerritQueryHandler query = new GerritQueryHandler(sshHostName, configuration.getSshPort(), null, auth);
+            List<JSONObject> reviews;
 
-        changes = new ArrayList<>(reviews.size());
-
-        for (JSONObject obj : reviews) {
-            if (obj.has("type") && "stats".equalsIgnoreCase(obj.getString("type"))) {
-                // The final JSON object in the query results is just a set of statistics
-                if (log.isDebugEnabled()) {
-                    log.trace("Results from QUERY: " + obj.optString("rowCount", "(unknown)") + " rows; runtime: "
-                            + obj.optString("runTimeMilliseconds", "(unknown)") + " ms");
-                }
-                continue;
+            try {
+                reviews = query.queryJava(searchQuery, false, true, false);
+            } catch (SshException e) {
+                throw new GerritQueryException("An ssh error occurred while querying for reviews.", e);
+            } catch (IOException e) {
+                throw new GerritQueryException("An error occurred while querying for reviews.", e);
             }
 
-            changes.add(new GerritChange(obj));
+            for (JSONObject obj : reviews) {
+                if (obj.has("type") && "stats".equalsIgnoreCase(obj.getString("type"))) {
+                    // The final JSON object in the query results is just a set of statistics
+                    if (log.isDebugEnabled()) {
+                        log.trace("Results from QUERY: " + obj.optString("rowCount", "(unknown)") + " rows; runtime: "
+                                + obj.optString("runTimeMilliseconds", "(unknown)") + " ms");
+                    }
+                    continue;
+                }
+                changes.add(new GerritChange(obj, sshHostName));
+            }
         }
-
         Collections.sort(changes);
         return changes;
     }

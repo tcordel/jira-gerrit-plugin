@@ -42,10 +42,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.servlet.ServletException;
@@ -201,15 +198,20 @@ public class AdminServlet extends HttpServlet {
         }
 
         Authentication auth = new Authentication(configuration.getSshPrivateKey(), configuration.getSshUsername());
-        GerritQueryHandler query = new GerritQueryHandler(configuration.getSshHostname(), configuration.getSshPort(), null, auth);
 
-        try {
-            query.queryJava("limit:1", false, false, false);
-            map.put("testResult", Boolean.TRUE);
-        } catch (IOException | GerritQueryException e) {
-            e.printStackTrace();
-            map.put("testError", e.getMessage());
+        final Iterator<String> iterator = configuration.getSshHostnameList().iterator();
+        while (iterator.hasNext()) {
+            final String sshHostName = iterator.next();
+            GerritQueryHandler query = new GerritQueryHandler(sshHostName, configuration.getSshPort(), null, auth);
+            try {
+                query.queryJava("limit:1", false, false, false);
+            } catch (IOException | GerritQueryException e) {
+                e.printStackTrace();
+                map.put("testError", e.getMessage());
+                return;
+            }
         }
+        map.put("testResult", Boolean.TRUE);
     }
 
     private String getAction(List<FileItem> items) {

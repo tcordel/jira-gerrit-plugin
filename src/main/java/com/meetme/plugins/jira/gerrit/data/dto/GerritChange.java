@@ -36,6 +36,8 @@ public class GerritChange extends Change implements Comparable<GerritChange> {
         NEW, SUBMITTED, DRAFT, MERGED, ABANDONED
     }
 
+    private String hostname;
+
     private Date lastUpdated;
 
     private GerritPatchSet patchSet;
@@ -50,6 +52,11 @@ public class GerritChange extends Change implements Comparable<GerritChange> {
 
     public GerritChange(JSONObject obj) {
         super(obj);
+    }
+
+    public GerritChange(JSONObject obj, String hostname) {
+        this(obj);
+        setHostname(hostname);
     }
 
     /**
@@ -123,5 +130,13 @@ public class GerritChange extends Change implements Comparable<GerritChange> {
 
     public void setStatus(Status status) {
         this.status = status;
+    }
+
+    public String getHostname() {
+        return hostname;
+    }
+
+    public void setHostname(String hostname) {
+        this.hostname = hostname;
     }
 }

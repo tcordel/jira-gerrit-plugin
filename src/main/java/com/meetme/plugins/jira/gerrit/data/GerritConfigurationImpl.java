@@ -17,9 +17,11 @@ import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang.StringUtils;
 
 import java.io.File;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -92,6 +94,15 @@ public class GerritConfigurationImpl implements GerritConfiguration {
     @Override
     public String getSshHostname() {
         return (String) settings.get(FIELD_SSH_HOSTNAME);
+    }
+
+    @Override
+    public List<String> getSshHostnameList() {
+        final String s = (String) settings.get(FIELD_SSH_HOSTNAME);
+        if (StringUtils.isNotEmpty(s)) {
+            return Arrays.asList(s.split(";"));
+        }
+        return null;
     }
 
     @Override

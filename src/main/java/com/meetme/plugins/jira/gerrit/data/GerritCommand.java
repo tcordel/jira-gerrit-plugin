@@ -22,6 +22,7 @@ import com.sonyericsson.hudson.plugins.gerrit.gerritevents.ssh.SshConnection;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.ssh.SshConnectionFactory;
 import com.sonyericsson.hudson.plugins.gerrit.gerritevents.ssh.SshException;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +30,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Collections;
 import java.util.List;
 
 public class GerritCommand {
@@ -43,41 +45,33 @@ public class GerritCommand {
     }
 
     public boolean doReview(GerritChange change, String args) throws IOException {
-        final String command = getCommand(change, args);
-        return runCommand(command);
+        return doReviews(Collections.singletonList(change), args);
     }
 
     public boolean doReviews(List<GerritChange> changes, String args) throws IOException {
-        String[] commands = new String[changes.size()];
-        int i = 0;
 
-        for (GerritChange change : changes) {
-            commands[i++] = getCommand(change, args);
-        }
-
-        return runCommands(commands);
-    }
-
-    private boolean runCommand(String command) throws IOException {
-        return runCommands(new String[] { command });
-    }
-
-    @SuppressWarnings("deprecation")
-    private String getCommand(GerritChange change, String args) {
-
-        // TODO: escape args? Or build manually with String reviewType,int reviewScore,etc..?
-        return String.format("%s %s,%s %s", BASE_COMMAND, change.getNumber(), change.getPatchSet().getNumber(), args);
-    }
-
-    private boolean runCommands(String[] commands) throws IOException {
         boolean success = true;
         SshConnection ssh = null;
 
         try {
             Authentication auth = getAuthentication();
-            ssh = SshConnectionFactory.getConnection(config.getSshHostname(), config.getSshPort(), auth);
+            String lastHostname = null;
+            for (GerritChange change : changes) {
 
-            for (String command : commands) {
+                // Retrieve command to shoot
+                final String command = getCommand(change, args);
+
+                // select appropriate server
+                final String hostname = change.getHostname();
+                if (null == ssh || !StringUtils.equalsIgnoreCase(hostname, lastHostname)) {
+                    if (null != ssh) {
+                        ssh.disconnect();
+                    }
+                    ssh = SshConnectionFactory.getConnection(hostname, config.getSshPort(), auth);
+                    lastHostname = hostname;
+                }
+
+                // launch command
                 if (!runCommand(ssh, command)) {
                     log.warn("runCommand " + command + " returned false");
                     success = false;
@@ -92,9 +86,16 @@ public class GerritCommand {
         }
 
         if (log.isDebugEnabled()) {
-            log.trace("runCommands " + commands.length + " -> success = " + success);
+            log.trace("runCommands " + changes.size() + " -> success = " + success);
         }
         return success;
+    }
+
+    @SuppressWarnings("deprecation")
+    private String getCommand(GerritChange change, String args) {
+
+        // TODO: escape args? Or build manually with String reviewType,int reviewScore,etc..?
+        return String.format("%s %s,%s %s", BASE_COMMAND, change.getNumber(), change.getPatchSet().getNumber(), args);
     }
 
     private Authentication getAuthentication() {

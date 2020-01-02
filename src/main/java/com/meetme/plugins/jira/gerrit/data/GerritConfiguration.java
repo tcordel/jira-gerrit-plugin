@@ -51,6 +51,8 @@ public interface GerritConfiguration {
 
     String getSshHostname();
 
+    List<String> getSshHostnameList();
+
     int getSshPort();
 
     File getSshPrivateKey();
